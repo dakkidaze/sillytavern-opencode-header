@@ -10,7 +10,7 @@
 
 - **注入 `x-opencode-session`**:三种会话 ID 模式(见下),每个请求自动合并进 `custom_include_headers`,由 ST 服务器端转发到上游。
 - **User-Agent 伪装**:可选,把 `user-agent` 伪装成 opencode 客户端(两种预设或自定义)。
-- **设置面板**:实时展示当前对话使用的 Session ID 与 User-Agent。
+- **设置面板**:实时展示当前对话的 Session ID 与 User-Agent,提供「查询当前聊天 Session ID」按钮手动查询/生成。
 
 ## 会话 ID 三种模式
 

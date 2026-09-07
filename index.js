@@ -76,7 +76,8 @@ function getOrCreateSessionId() {
     try {
         const context = getContext();
         const meta = context?.chatMetadata;
-        if (meta && typeof meta === 'object') {
+        // 仅在存在活动聊天时读写聊天 metadata,避免主界面/无聊天时误写
+        if (meta && typeof meta === 'object' && context?.chatId) {
             if (isValidToken(meta[SESSION_VAR_KEY])) {
                 return String(meta[SESSION_VAR_KEY]);
             }
@@ -90,7 +91,27 @@ function getOrCreateSessionId() {
     } catch {
         // fall through
     }
-    return generateRotatingId();
+    return null;
+}
+
+function getExistingSessionId() {
+    const s = getSettings();
+    if (s.sessionMode === 'manual') {
+        return isValidToken(s.manualSessionId) ? s.manualSessionId : null;
+    }
+    if (s.sessionMode === 'random') {
+        return isValidToken(s.randomSessionId) ? s.randomSessionId : null;
+    }
+    try {
+        const context = getContext();
+        const meta = context?.chatMetadata;
+        if (meta && typeof meta === 'object' && isValidToken(meta[SESSION_VAR_KEY])) {
+            return String(meta[SESSION_VAR_KEY]);
+        }
+    } catch {
+        // fall through
+    }
+    return null;
 }
 
 function getUaValue() {
@@ -128,7 +149,10 @@ function applyHeaders(generateData) {
     const s = getSettings();
     if (!s.enabled) return;
     const headers = parseHeadersYaml(generateData.custom_include_headers);
-    headers['x-opencode-session'] = getOrCreateSessionId();
+    const sessionId = getOrCreateSessionId();
+    if (sessionId) {
+        headers['x-opencode-session'] = sessionId;
+    }
     if (s.spoofUa) {
         headers['user-agent'] = getUaValue();
     }
@@ -173,6 +197,7 @@ const TEMPLATE = `
             <div id="ocgo_random_row" style="display:none">
                 <button id="ocgo_random_new" class="menu_button">随机换新</button>
             </div>
+            <button id="ocgo_query_id" class="menu_button">查询当前聊天 Session ID</button>
             <div id="ocgo_current_id" class="ocgo-info"></div>
 
             <label class="checkbox_label">
@@ -195,7 +220,8 @@ const TEMPLATE = `
 function renderCurrent() {
     const idEl = document.getElementById('ocgo_current_id');
     if (idEl) {
-        idEl.textContent = `当前会话 ID: ${getOrCreateSessionId()}`;
+        const id = getExistingSessionId();
+        idEl.textContent = id ? `当前会话 ID: ${id}` : '当前会话 ID: (未进入聊天,首次发送时生成)';
     }
     const uaEl = document.getElementById('ocgo_current_ua');
     if (uaEl) {
@@ -232,6 +258,13 @@ function bindSettings() {
         renderCurrent();
     });
 
+    el('ocgo_query_id').addEventListener('click', () => {
+        // 主动查询/生成当前聊天的会话 ID(仅 perChat 模式依赖聊天上下文)
+        const id = getOrCreateSessionId();
+        renderCurrent();
+        toastr.info(`当前会话 ID: ${id ?? '(未进入聊天)'}`);
+    });
+
     el('ocgo_manual_id').value = settings.manualSessionId || '';
     el('ocgo_manual_id').addEventListener('input', (e) => {
         settings.manualSessionId = String(e.target.value);
@@ -261,7 +294,14 @@ function bindSettings() {
     });
 
     updateMode();
-    setInterval(renderCurrent, 2000);
+}
+
+function onChatLoaded() {
+    // 进入聊天时:若无 ID 则生成一次并持久化,然后刷新显示
+    if (getSettings().sessionMode === 'perChat') {
+        getOrCreateSessionId();
+    }
+    renderCurrent();
 }
 
 jQuery(() => {
@@ -269,5 +309,7 @@ jQuery(() => {
     if (!host) return;
     host.insertAdjacentHTML('beforeend', TEMPLATE);
     bindSettings();
+    eventSource.on(event_types.CHAT_LOADED, onChatLoaded);
+    renderCurrent();
     console.log('[OpenCodeGoHeader] loaded.');
 });
