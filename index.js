@@ -197,10 +197,8 @@ const TEMPLATE = `
             <div id="ocgo_random_row" style="display:none">
                 <button id="ocgo_random_new" class="menu_button">随机换新</button>
             </div>
-            <div class="ocgo-query-row">
-                <button id="ocgo_query_id" class="menu_button">查询当前聊天 Session ID</button>
-                <div id="ocgo_current_id" class="ocgo-info"></div>
-            </div>
+            <button id="ocgo_query_id" class="menu_button">查询当前聊天 Session ID</button>
+            <div id="ocgo_current_id" class="ocgo-info"></div>
 
             <label class="checkbox_label">
                 <input id="ocgo_spoof_ua" type="checkbox" />
