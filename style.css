@@ -1,0 +1,24 @@
+.ocgo-settings .ocgo-info {
+    margin: 8px 0;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 12px;
+    word-break: break-all;
+}
+
+.ocgo-settings .ocgo-hint {
+    margin: 6px 0;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.ocgo-settings select {
+    width: 100%;
+    margin-bottom: 6px;
+}
+
+.ocgo-settings .menu_button {
+    margin: 6px 0;
+}

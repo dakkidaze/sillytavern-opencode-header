@@ -1,0 +1,12 @@
+{
+    "display_name": "OpenCode Go Session Header",
+    "version": "1.1.0",
+    "author": "you",
+    "homePage": "https://opencode.ai/docs/go",
+    "description": "Injects x-opencode-session header (per-chat / random / manual) and optional User-Agent spoofing for OpenCode Go via Custom (OpenAI-compatible) Chat Completion.",
+    "loading_order": 100,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css"
+}
