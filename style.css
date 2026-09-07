@@ -1,3 +1,15 @@
+.ocgo-settings .ocgo-query-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+}
+
+.ocgo-settings .ocgo-query-row .ocgo-info {
+    margin: 0;
+    flex: 1;
+}
+
 .ocgo-settings .ocgo-info {
     margin: 8px 0;
     padding: 6px 8px;
