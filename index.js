@@ -216,18 +216,19 @@ function trackRequestId(requestId) {
 
 function attachRequestBadge(element, requestId) {
     if (!element || !requestId) return;
-    const timer = element.querySelector('.mes_timer');
-    if (!timer) return;
-    const existing = timer.parentElement?.querySelector('.ocgo-request-id');
-    if (existing) {
-        existing.textContent = requestId;
+    // 放在头部链最右端:头像 → 卡名 → 时间 → API 指示图标 → 本徽标
+    const anchor = element.querySelector('.timestamp-icon') || element.querySelector('.timestamp');
+    if (!anchor) return;
+    let badge = anchor.parentElement?.querySelector('.ocgo-request-id');
+    if (badge) {
+        badge.textContent = requestId;
         return;
     }
     const span = document.createElement('span');
     span.className = 'ocgo-request-id';
     span.textContent = requestId;
     span.title = 'x-opencode-request';
-    timer.insertAdjacentElement('afterend', span);
+    anchor.insertAdjacentElement('afterend', span);
 }
 
 function onCharacterMessageRendered(messageId, type) {
