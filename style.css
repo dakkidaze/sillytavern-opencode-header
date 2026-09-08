@@ -23,3 +23,19 @@
     margin: 6px 0;
     white-space: nowrap;
 }
+
+.ocgo-request-id {
+    margin-left: 6px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: rgba(128, 128, 128, 0.15);
+    font-family: monospace;
+    font-size: 10px;
+    opacity: 0.6;
+    white-space: nowrap;
+    user-select: text;
+}
+
+.ocgo-request-id:hover {
+    opacity: 1;
+}

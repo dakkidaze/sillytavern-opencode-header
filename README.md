@@ -27,6 +27,7 @@
 - **注入 `x-opencode-request`**：每次请求新生成一个 `msg_` 格式 ID，与 opencode 客户端逐请求一致。
 - **注入 `x-opencode-client: tui`**：固定常量，标识客户端类型。
 - **User-Agent 配置**：可选，把 `user-agent` 配置为与 opencode 客户端一致的取值（两种预设或自定义）。
+- **回复消息上显示 request id**：每次生成完成后，把本次请求使用的 `x-opencode-request` 显示在回复消息的时间旁边（重新生成会自动更新）。
 - **设置面板**：实时展示当前对话的 Session ID 与 User-Agent，提供「查询当前聊天 Session ID」按钮手动查询/生成。
 
 ## 注入的请求头

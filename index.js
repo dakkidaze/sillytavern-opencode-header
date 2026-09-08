@@ -14,6 +14,9 @@ const UA_PRESETS = [
 let sesLastMs = 0;
 let sesCounter = 0;
 
+let pendingMessageId = null;
+let pendingRequestId = null;
+
 function defaultSettings() {
     return {
         enabled: true,
@@ -187,6 +190,7 @@ function applyHeaders(generateData) {
     }
     headers['x-opencode-request'] = generateId('msg_', false);
     headers['x-opencode-client'] = 'tui';
+    trackRequestId(headers['x-opencode-request']);
     if (s.spoofUa) {
         headers['user-agent'] = getUaValue();
     }
@@ -200,6 +204,45 @@ function onSettingsReady(generateData) {
         applyHeaders(generateData);
     } catch {
         // ignore
+    }
+}
+
+function trackRequestId(requestId) {
+    // 请求准备阶段:记录本次请求对应的目标消息(正在生成的最后一条 assistant 消息),
+    // 渲染完成后把 request id 贴在它的时间旁边。
+    pendingRequestId = null;
+    pendingMessageId = null;
+    try {
+        const context = getContext();
+        const chat = context?.chat;
+        if (!Array.isArray(chat) || !chat.length) return;
+        const last = chat[chat.length - 1];
+        if (last && last.id && !last.is_user && !last.is_system) {
+            pendingMessageId = last.id;
+            pendingRequestId = requestId;
+        }
+    } catch {
+        // ignore
+    }
+}
+
+function attachRequestBadge(element, requestId) {
+    if (!element || !requestId) return;
+    const timer = element.querySelector('.mes_timer');
+    if (!timer) return;
+    if (timer.parentElement?.querySelector('.ocgo-request-id')) return;
+    const span = document.createElement('span');
+    span.className = 'ocgo-request-id';
+    span.textContent = requestId;
+    span.title = 'x-opencode-request';
+    timer.insertAdjacentElement('afterend', span);
+}
+
+function onMessageRendered(message, element) {
+    if (!pendingRequestId || !pendingMessageId) return;
+    const id = message && typeof message === 'object' ? message.id : message;
+    if (String(id) === String(pendingMessageId)) {
+        attachRequestBadge(element, pendingRequestId);
     }
 }
 
@@ -344,6 +387,7 @@ jQuery(() => {
     host.insertAdjacentHTML('beforeend', TEMPLATE);
     bindSettings();
     eventSource.on(event_types.CHAT_LOADED, onChatLoaded);
+    eventSource.on(event_types.MESSAGE_RENDERED, onMessageRendered);
     renderCurrent();
     console.log('[OpenCodeGoHeader] loaded.');
 });
