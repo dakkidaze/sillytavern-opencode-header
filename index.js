@@ -37,11 +37,12 @@ function getSettings() {
     return s;
 }
 
-function generateRotatingId() {
+function generateId(prefix, descending) {
     const now = Date.now();
     if (now !== sesLastMs) { sesLastMs = now; sesCounter = 0; }
     sesCounter++;
-    const n = ~(BigInt(now) * 0x1000n + BigInt(sesCounter));
+    let n = BigInt(now) * 0x1000n + BigInt(sesCounter);
+    if (descending) n = ~n;
     let hex = '';
     for (let i = 5; i >= 0; i--) {
         hex += ((n >> BigInt(8 * i)) & 0xffn).toString(16).padStart(2, '0');
@@ -50,7 +51,11 @@ function generateRotatingId() {
     crypto.getRandomValues(rand);
     let b62 = '';
     for (const v of rand) b62 += SES_ALPHABET[v % 62];
-    return 'ses_' + hex + b62;
+    return prefix + hex + b62;
+}
+
+function generateRotatingId() {
+    return generateId('ses_', true);
 }
 
 function isValidToken(value) {
@@ -145,14 +150,43 @@ function parseHeadersYaml(text) {
     return {};
 }
 
+function isOpencodeEndpoint(url) {
+    if (!url) return false;
+    const u = String(url).trim().replace(/\/+$/, '').toLowerCase();
+    return u.includes('opencode.ai/zen/go') || u.includes('zen/go');
+}
+
+// tavern-helper(酒馆助手)额外模型解析的兜底:
+// 它把端点放在 reverse_proxy,且因 custom_api.source 未设置而被降级为 openai 源,
+// 服务器端 openai 分支不会合并 custom_include_headers,导致 x-opencode-session 丢失。
+// 这里把请求强制改造成 custom 源,让服务器走 CUSTOM 分支合并 headers。
+function applyTavernHelperFallback(generateData) {
+    if (!generateData || typeof generateData !== 'object') return;
+    if (!generateData.reverse_proxy) return;
+    if (!isOpencodeEndpoint(generateData.reverse_proxy)) return;
+    if (generateData.chat_completion_source === 'custom') return;
+    if (generateData.custom_url) return;
+
+    generateData.chat_completion_source = 'custom';
+    generateData.custom_url = generateData.reverse_proxy;
+}
+
 function applyHeaders(generateData) {
     const s = getSettings();
     if (!s.enabled) return;
+    applyTavernHelperFallback(generateData);
     const headers = parseHeadersYaml(generateData.custom_include_headers);
+    // 额外模型走 CUSTOM 分支时,key 来自 SECRET_KEYS.CUSTOM;而 tavern-helper 的 key 在 proxy_password 里,
+    // 需要显式写入 Authorization 才能通过上游认证
+    if (generateData.proxy_password && !headers['Authorization']) {
+        headers['Authorization'] = `Bearer ${generateData.proxy_password}`;
+    }
     const sessionId = getOrCreateSessionId();
     if (sessionId) {
         headers['x-opencode-session'] = sessionId;
     }
+    headers['x-opencode-request'] = generateId('msg_', false);
+    headers['x-opencode-client'] = 'tui';
     if (s.spoofUa) {
         headers['user-agent'] = getUaValue();
     }
@@ -181,7 +215,7 @@ const TEMPLATE = `
         <div class="inline-drawer-content">
             <label class="checkbox_label">
                 <input id="ocgo_enabled" type="checkbox" />
-                <span>启用（注入 x-opencode-session）</span>
+                <span>启用（注入 x-opencode-* 请求头）</span>
             </label>
 
             <label for="ocgo_mode">会话 ID 模式</label>
@@ -202,7 +236,7 @@ const TEMPLATE = `
 
             <label class="checkbox_label">
                 <input id="ocgo_spoof_ua" type="checkbox" />
-                <span>伪装 User-Agent 为 opencode 客户端</span>
+                <span>将 User-Agent 配置为与 opencode 客户端一致</span>
             </label>
             <label for="ocgo_ua_preset">User-Agent 预设</label>
             <select id="ocgo_ua_preset" class="text_pole">
