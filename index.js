@@ -14,7 +14,7 @@ const UA_PRESETS = [
 let sesLastMs = 0;
 let sesCounter = 0;
 
-let pendingMessageId = null;
+let pendingArmed = false;
 let pendingRequestId = null;
 
 function defaultSettings() {
@@ -208,29 +208,21 @@ function onSettingsReady(generateData) {
 }
 
 function trackRequestId(requestId) {
-    // 请求准备阶段:记录本次请求对应的目标消息(正在生成的最后一条 assistant 消息),
-    // 渲染完成后把 request id 贴在它的时间旁边。
-    pendingRequestId = null;
-    pendingMessageId = null;
-    try {
-        const context = getContext();
-        const chat = context?.chat;
-        if (!Array.isArray(chat) || !chat.length) return;
-        const last = chat[chat.length - 1];
-        if (last && last.id && !last.is_user && !last.is_system) {
-            pendingMessageId = last.id;
-            pendingRequestId = requestId;
-        }
-    } catch {
-        // ignore
-    }
+    // 请求准备阶段:记下本次请求的 id。回复消息是在请求发出后才创建的,
+    // 所以这里只"武装",等 CHARACTER_MESSAGE_RENDERED 渲染到回复时再贴上并解除。
+    pendingRequestId = requestId;
+    pendingArmed = true;
 }
 
 function attachRequestBadge(element, requestId) {
     if (!element || !requestId) return;
     const timer = element.querySelector('.mes_timer');
     if (!timer) return;
-    if (timer.parentElement?.querySelector('.ocgo-request-id')) return;
+    const existing = timer.parentElement?.querySelector('.ocgo-request-id');
+    if (existing) {
+        existing.textContent = requestId;
+        return;
+    }
     const span = document.createElement('span');
     span.className = 'ocgo-request-id';
     span.textContent = requestId;
@@ -238,12 +230,13 @@ function attachRequestBadge(element, requestId) {
     timer.insertAdjacentElement('afterend', span);
 }
 
-function onMessageRendered(message, element) {
-    if (!pendingRequestId || !pendingMessageId) return;
-    const id = message && typeof message === 'object' ? message.id : message;
-    if (String(id) === String(pendingMessageId)) {
-        attachRequestBadge(element, pendingRequestId);
-    }
+function onCharacterMessageRendered(messageId, type) {
+    if (!pendingArmed || !pendingRequestId) return;
+    const msg = getContext().chat?.[messageId];
+    if (!msg || msg.is_user) return;
+    const element = document.querySelector(`#chat .mes[mesid="${messageId}"]`);
+    attachRequestBadge(element, pendingRequestId);
+    pendingArmed = false;
 }
 
 eventSource.makeLast(event_types.CHAT_COMPLETION_SETTINGS_READY, onSettingsReady);
@@ -374,6 +367,8 @@ function bindSettings() {
 }
 
 function onChatLoaded() {
+    // 切换聊天时解除武装,避免上次残留的 request id 贴到别的聊天消息上
+    pendingArmed = false;
     // 进入聊天时:若无 ID 则生成一次并持久化,然后刷新显示
     if (getSettings().sessionMode === 'perChat') {
         getOrCreateSessionId();
@@ -387,7 +382,8 @@ jQuery(() => {
     host.insertAdjacentHTML('beforeend', TEMPLATE);
     bindSettings();
     eventSource.on(event_types.CHAT_LOADED, onChatLoaded);
-    eventSource.on(event_types.MESSAGE_RENDERED, onMessageRendered);
+    eventSource.on(event_types.CHAT_CHANGED, onChatLoaded);
+    eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, onCharacterMessageRendered);
     renderCurrent();
     console.log('[OpenCodeGoHeader] loaded.');
 });
